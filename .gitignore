@@ -1,0 +1,9 @@
+# 本地账号配置
+*-my.py
+
+# Python
+__pycache__/
+*.pyc
+
+# 工具目录
+.kimi-code/
