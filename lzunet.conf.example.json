@@ -1,0 +1,15 @@
+{
+  "primary": {
+    "username": "your_username",
+    "password": "your_password"
+  },
+  "backups": [
+    {
+      "username": "backup1",
+      "password": "backup_password"
+    }
+  ],
+  "domain": "",
+  "ac_id": "2",
+  "auth_url": "http://10.10.0.166"
+}

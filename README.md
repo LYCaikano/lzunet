@@ -69,16 +69,48 @@ GET /cgi-bin/rad_user_dm?callback=jQuery
 
 ## 使用
 
-`lzunet.py`：纯 Python3 标准库实现，填好配置区 `USERNAME/PASSWORD/DOMAIN` 后：
+`lzunet.py`：纯 Python3 标准库实现。账号配置在脚本同目录的 `lzunet.conf.json`
+（含密码，权限应为 600，已被 .gitignore 忽略；仓库附带样例 `lzunet.conf.example.json`，
+复制改名后填账号即可。`username` 一律为裸用户名，不带域后缀）：
 
-```sh
-python3 lzunet.py login     # 登录
-python3 lzunet.py logout    # 注销
-python3 lzunet.py status    # 查在线状态
+```json
+{
+  "primary":  {"username": "主账号", "password": "密码"},
+  "backups":  [{"username": "副账号1", "password": "密码"}],
+  "domain":   "",
+  "ac_id":    "2",
+  "auth_url": "http://10.10.0.166"
+}
 ```
 
-OpenWrt 软路由：`opkg install python3`（x86 软路由直接可用），把脚本放到
-`/etc/lzunet.py`，再配 cron 保活，例如每 5 分钟检测、掉线自动重登：
+`primary` 必填，`backups` 可为空数组；`domain/ac_id/auth_url` 可省略（默认
+校园网域空、ac_id=2、http://10.10.0.166）。
+
+```sh
+python3 lzunet.py login             # 登录：主账号优先，任何失败随机尝试全部副账号
+python3 lzunet.py logout            # 注销（DM + unbind=1）
+python3 lzunet.py status            # 查在线状态
+python3 lzunet.py list              # 列出已保存账号（密码打码），标注当前在线账号
+python3 lzunet.py switch <用户名>    # 把副账号提升为主账号（裸用户名，不带后缀）
+```
+
+**故障转移（login）**：主账号登录失败（密码错、在线设备数达上限等任何原因）→
+随机顺序尝试全部副账号，任一成功即停；不改动主副配置。
+
+**切换主账号（switch）**：严格**先注销后登录**——
+
+1. DM 注销当前会话（`unbind=1`）并轮询 `rad_user_info` 确认真离线；若被
+   MacAuth 无感知认证毫秒级拉回则重试注销（≤3 次），仍在线则中止切换、不碰登录
+   （杜绝旧会话没退干净就登新账号导致的上游串号/回退失败）。
+2. 登录目标账号（`ip_already_online_error` 此时算失败），并核实在线身份确为目标账号；
+   成功则原子重写 `lzunet.conf.json`：目标升为主账号，原主账号转为副账号。
+3. 目标登录失败 → 自动回退原主账号（配置不变）。
+4. 回退也失败 → 随机尝试其余备用账号保住在线（**不设为主账号**）。
+
+部署到路由时 `lzunet.py` 与 `lzunet.conf.json` 必须放同一目录。
+
+OpenWrt 软路由：`opkg install python3`（x86 软路由直接可用），把两个文件放到
+`/etc/`（或 `/opt/lzunet/`），再配 cron 保活，例如每 5 分钟检测、掉线自动重登：
 
 ```cron
 */5 * * * * /usr/bin/python3 /etc/lzunet.py status | grep -q 未在线 && /usr/bin/python3 /etc/lzunet.py login

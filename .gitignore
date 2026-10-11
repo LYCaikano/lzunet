@@ -1,5 +1,8 @@
 # 本地账号配置
 *-my.py
+lzunet.conf.json
+
+r2s-lzunet/
 
 # Python
 __pycache__/
